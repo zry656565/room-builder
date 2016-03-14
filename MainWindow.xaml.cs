@@ -51,7 +51,15 @@ using SJTU.IOTLab.RoomBuilder.KinectProcessor;
         /// <summary>
         /// Gets the bitmap to display
         /// </summary>
-        public ImageSource ImageSource
+        public ImageSource DepthImage
+        {
+            get
+            {
+                return this.kinectProcessor.depthBitmap;
+            }
+        }
+
+        public ImageSource SplittedFlatImage
         {
             get
             {
