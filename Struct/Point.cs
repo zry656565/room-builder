@@ -43,7 +43,7 @@ namespace SJTU.IOTLab.RoomBuilder.Struct
 
             double z = this.cameraLocation.z - screenY / FOCAL_LENGTH_IN_PIXELS * depth;
 
-            if (zStart != -1 && z >= zStart && z < zEnd)
+            if (zStart == -1 || (z >= zStart && z < zEnd))
             {
                 // 小孔成像，X轴反转
                 return new rPoint(
@@ -57,6 +57,18 @@ namespace SJTU.IOTLab.RoomBuilder.Struct
         public rPoint? transform(int x, int y, int depth, double zStart = -1, double zEnd = -1)
         {
             return transform(new Pixel(x, y, depth), zStart, zEnd);
+        }
+
+        public double getZ(Pixel pixel)
+        {
+            double screenY = pixel.y - this.depthImageHeight / 2f;
+            double depth = pixel.depth / 1000f;
+            return this.cameraLocation.z - screenY / FOCAL_LENGTH_IN_PIXELS * depth;
+        }
+
+        public double getZ(int x, int y, int depth)
+        {
+            return getZ(new Pixel(x, y, depth));
         }
     }
 

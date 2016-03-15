@@ -190,18 +190,26 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
 
                     if (depth >= minDepth && depth <= maxDepth)
                     {
-                        rPoint? point = pointProcessor.transform(x, y, depth, -.5f, .5f);
-                        if (point != null)
+                        Pixel pixel = new Pixel(x, y, depth);
+                        double z = pointProcessor.getZ(pixel);
+                        uint color;
+
+                        //if (z > -.55f && z < .85f) color = 0xff0000ff;
+                        if (z > -.65f && z < -.35f) color = 0xffff0000;
+                        else if (z > -.05f && z < .25f) color = 0xff00ff00;
+                        else if (z > .55f && z < .85f) color = 0xff0000ff;
+                        else color = 0;
+
+                        if (color != 0)
                         {
-                            //this.pointCloud.Add((rPoint)point);
-                            rPoint p = (rPoint)point;
-                            int mapX = (int)((MapActualWidth / 2f + p.x) / MapActualWidth * MapPixelWidth);
-                            int mapY = (int)((MapActualHeight / 2f - p.y) / MapActualHeight * MapPixelHeight);
+                            rPoint point = (rPoint)(pointProcessor.transform(pixel));
+                            int mapX = (int)((MapActualWidth / 2f + point.x) / MapActualWidth * MapPixelWidth);
+                            int mapY = (int)((MapActualHeight / 2f - point.y) / MapActualHeight * MapPixelHeight);
 
                             if (mapX >= 0 && mapX < MapPixelWidth && mapY >= 0 && mapY < MapPixelHeight)
                             {
                                 // Treat the color data as 4-byte pixels
-                                flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = 0xffff0000;
+                                flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = color;
                             }
                         }
                     }
