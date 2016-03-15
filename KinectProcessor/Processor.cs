@@ -24,6 +24,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         private const int MapPixelHeight = 1000;
         private const double MapActualWidth = 6f;   // 6m
         private const double MapActualHeight = 6f;  // 6m
+        private const int MAX_FPS = 15;
 
         /// <summary>
         /// Size of the RGB pixel in the bitmap
@@ -61,6 +62,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         private byte[] floatPixels = null;
 
         private SetStatusText setStatusText = null;
+        private DateTime timestamp;
 
         public void initialize(SetStatusText setStatusText)
         {
@@ -97,6 +99,8 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
 
             this.setStatusText = setStatusText;
 
+            this.timestamp = DateTime.Now;
+
             // set the status text
             this.setStatusText(this.kinectSensor.IsAvailable ? Properties.Resources.RunningStatusText
                                                              : Properties.Resources.NoSensorStatusText);
@@ -109,6 +113,10 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         /// <param name="e">event arguments</param>
         private void Reader_FrameArrived(object sender, DepthFrameArrivedEventArgs e)
         {
+            TimeSpan elapsedSpan = new TimeSpan(DateTime.Now.Ticks - this.timestamp.Ticks);
+            if (elapsedSpan.Milliseconds < (1000f / MAX_FPS)) return;
+            this.timestamp = DateTime.Now;
+
             bool depthFrameProcessed = false;
 
             using (DepthFrame depthFrame = e.FrameReference.AcquireFrame())
@@ -125,8 +133,8 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                         {
                             // Note: In order to see the full range of depth (including the less reliable far field depth)
                             // we are setting maxDepth to the extreme potential depth threshold
-                            //ushort maxDepth = ushort.MaxValue;
-                            ushort maxDepth = 2500;
+                            ushort maxDepth = ushort.MaxValue;
+                            //ushort maxDepth = 2500;
 
                             // If you wish to filter by reliable depth distance, uncomment the following line:
                             //// maxDepth = depthFrame.DepthMaxReliableDistance
@@ -164,6 +172,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             //this.pointCloud.Clear();
             this.splittedFlatBitmap.Lock();
             this.splittedFlatBitmap.Clear();
+            uint* flatBitmapPixelsPointer = (uint*)this.splittedFlatBitmap.BackBuffer;
 
             // convert depth to a visual representation
             // and transform pixels to point cloud
@@ -189,9 +198,11 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                             int mapX = (int)((MapActualWidth / 2f + p.x) / MapActualWidth * MapPixelWidth);
                             int mapY = (int)((MapActualHeight / 2f - p.y) / MapActualHeight * MapPixelHeight);
 
-                            // Treat the color data as 4-byte pixels
-                            uint* flatBitmapPixelsPointer = (uint*)this.splittedFlatBitmap.BackBuffer;
-                            flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = 0xffff0000;
+                            if (mapX >= 0 && mapX < MapPixelWidth && mapY >= 0 && mapY < MapPixelHeight)
+                            {
+                                // Treat the color data as 4-byte pixels
+                                flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = 0xffff0000;
+                            }
                         }
                     }
                 }
