@@ -31,13 +31,15 @@
       <Image Source="{Binding DepthImage}" Stretch="UniformToFill" />
     </Viewbox>
 
-    <Viewbox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Center">
+    <StatusBar Grid.Row="2" Grid.Column="0" HorizontalAlignment="Stretch" Name="statusBar" VerticalAlignment="Bottom" Background="White" Foreground="{StaticResource MediumGreyBrush}">
+      <StatusBarItem Content="{Binding StatusText}" />
+    </StatusBar>
+
+    <Viewbox Grid.Row="1" Grid.Column="1" Grid.RowSpan="2" HorizontalAlignment="Center">
       <Image Source="{Binding SplittedFlatImage}" Stretch="UniformToFill" />
     </Viewbox>
 
-    <StatusBar Grid.Row="3" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" Name="statusBar" VerticalAlignment="Bottom" Background="White" Foreground="{StaticResource MediumGreyBrush}">
-      <StatusBarItem Content="{Binding StatusText}" />
-    </StatusBar>
+    
     
   </Grid>
 </Window>

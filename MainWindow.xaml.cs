@@ -63,7 +63,7 @@ using SJTU.IOTLab.RoomBuilder.KinectProcessor;
         {
             get
             {
-                return this.kinectProcessor.depthBitmap;
+                return this.kinectProcessor.splittedFlatBitmap;
             }
         }
 

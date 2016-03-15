@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Kinect;
+using SJTU.IOTLab.RoomBuilder.Struct;
 
 
 namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
@@ -19,6 +20,15 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         /// Map depth range to byte range
         /// </summary>
         private const int MapDepthToByte = 8000 / 256;
+        private const int MapPixelWidth = 1000;
+        private const int MapPixelHeight = 1000;
+        private const double MapActualWidth = 6f;   // 6m
+        private const double MapActualHeight = 6f;  // 6m
+
+        /// <summary>
+        /// Size of the RGB pixel in the bitmap
+        /// </summary>
+        private readonly int bytesPerPixel = (PixelFormats.Bgr32.BitsPerPixel + 7) / 8;
 
         /// <summary>
         /// Active Kinect sensor
@@ -39,11 +49,16 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         /// Bitmap to display
         /// </summary>
         public WriteableBitmap depthBitmap = null;
+        public WriteableBitmap splittedFlatBitmap = null;
+
+        private PointProcessor pointProcessor = null;
+        private List<rPoint> pointCloud = null;
 
         /// <summary>
         /// Intermediate storage for frame data converted to color
         /// </summary>
         private byte[] depthPixels = null;
+        private byte[] floatPixels = null;
 
         private SetStatusText setStatusText = null;
 
@@ -63,15 +78,22 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
 
             // allocate space to put the pixels being received and converted
             this.depthPixels = new byte[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
+            this.floatPixels = new byte[MapPixelWidth * MapPixelHeight * 3];
+
+            this.pointCloud = new List<rPoint>();
 
             // create the bitmap to display
             this.depthBitmap = new WriteableBitmap(this.depthFrameDescription.Width, this.depthFrameDescription.Height, 96.0, 96.0, PixelFormats.Gray8, null);
+            this.splittedFlatBitmap = new WriteableBitmap(MapPixelWidth, MapPixelHeight, 96.0, 96.0, PixelFormats.Bgra32, null);
 
             // set IsAvailableChanged event notifier
             this.kinectSensor.IsAvailableChanged += this.Sensor_IsAvailableChanged;
 
             // open the sensor
             this.kinectSensor.Open();
+
+            this.pointProcessor = new PointProcessor((ushort)this.depthFrameDescription.Width, (ushort)this.depthFrameDescription.Height);
+            this.pointProcessor.setCameraLocation(new rPoint(0, -3, 0), Math.PI / 2f);
 
             this.setStatusText = setStatusText;
 
@@ -103,7 +125,8 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                         {
                             // Note: In order to see the full range of depth (including the less reliable far field depth)
                             // we are setting maxDepth to the extreme potential depth threshold
-                            ushort maxDepth = ushort.MaxValue;
+                            //ushort maxDepth = ushort.MaxValue;
+                            ushort maxDepth = 2500;
 
                             // If you wish to filter by reliable depth distance, uncomment the following line:
                             //// maxDepth = depthFrame.DepthMaxReliableDistance
@@ -118,6 +141,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             if (depthFrameProcessed)
             {
                 this.RenderDepthPixels();
+                this.RenderFlatBitmap();
             }
         }
 
@@ -136,15 +160,41 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             // depth frame data is a 16 bit value
             ushort* frameData = (ushort*)depthFrameData;
 
-            // convert depth to a visual representation
-            for (int i = 0; i < (int)(depthFrameDataSize / this.depthFrameDescription.BytesPerPixel); ++i)
-            {
-                // Get the depth for this pixel
-                ushort depth = frameData[i];
+            // TODO: clear point cloud for now.
+            //this.pointCloud.Clear();
+            this.splittedFlatBitmap.Lock();
+            this.splittedFlatBitmap.Clear();
 
-                // To convert to a byte, we're mapping the depth value to the byte range.
-                // Values outside the reliable depth range are mapped to 0 (black).
-                this.depthPixels[i] = (byte)(depth >= minDepth && depth <= maxDepth ? (depth / MapDepthToByte) : 0);
+            // convert depth to a visual representation
+            // and transform pixels to point cloud
+            for (ushort y = 0; y < depthFrameDescription.Height; ++y)
+            {
+                for (ushort x = 0; x < depthFrameDescription.Width; ++x)
+                {
+                    int index = x + y * depthFrameDescription.Width;
+                    // Get the depth for this pixel
+                    ushort depth = frameData[index];
+
+                    // To convert to a byte, we're mapping the depth value to the byte range.
+                    // Values outside the reliable depth range are mapped to 0 (black).
+                    this.depthPixels[index] = (byte)(depth >= minDepth && depth <= maxDepth ? (depth / MapDepthToByte) : 0);
+
+                    if (depth >= minDepth && depth <= maxDepth)
+                    {
+                        rPoint? point = pointProcessor.transform(x, y, depth, -.5f, .5f);
+                        if (point != null)
+                        {
+                            //this.pointCloud.Add((rPoint)point);
+                            rPoint p = (rPoint)point;
+                            int mapX = (int)((MapActualWidth / 2f + p.x) / MapActualWidth * MapPixelWidth);
+                            int mapY = (int)((MapActualHeight / 2f - p.y) / MapActualHeight * MapPixelHeight);
+
+                            // Treat the color data as 4-byte pixels
+                            uint* flatBitmapPixelsPointer = (uint*)this.splittedFlatBitmap.BackBuffer;
+                            flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = 0xffff0000;
+                        }
+                    }
+                }
             }
         }
 
@@ -158,6 +208,12 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                 this.depthPixels,
                 this.depthBitmap.PixelWidth,
                 0);
+        }
+
+        private void RenderFlatBitmap()
+        {
+            this.splittedFlatBitmap.AddDirtyRect(new Int32Rect(0, 0, this.splittedFlatBitmap.PixelWidth, this.splittedFlatBitmap.PixelHeight));
+            this.splittedFlatBitmap.Unlock();
         }
 
         /// <summary>
