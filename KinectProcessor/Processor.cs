@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Kinect;
 using SJTU.IOTLab.RoomBuilder.Struct;
+using System.Threading;
 
 
 namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
@@ -64,6 +65,11 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         private SetStatusText setStatusText = null;
         private DateTime timestamp;
 
+        public static void startPlayback()
+        {
+            PlaybackHelper.PlaybackClip("D:\\Dev\\warehouse_1.xef", 10);
+        }
+
         public void initialize(SetStatusText setStatusText)
         {
             // get the kinectSensor object
@@ -104,6 +110,12 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             // set the status text
             this.setStatusText(this.kinectSensor.IsAvailable ? Properties.Resources.RunningStatusText
                                                              : Properties.Resources.NoSensorStatusText);
+
+            if (!this.kinectSensor.IsAvailable)
+            {
+                Thread playbackThread = new Thread(startPlayback);
+                playbackThread.Start();
+            }
         }
 
         /// <summary>
