@@ -9,6 +9,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Kinect;
 using SJTU.IOTLab.RoomBuilder.Struct;
+using KdTree;
+using KdTree.Math;
 
 namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
 {
@@ -53,7 +55,8 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         public WriteableBitmap splittedFlatBitmap = null;
 
         private PointProcessor pointProcessor = null;
-        private List<rPoint> pointCloud = null;
+        private KdTree<double, int> pointCloud = null;
+        private bool cloudInitialized = false;
 
         /// <summary>
         /// Intermediate storage for frame data converted to color
@@ -87,7 +90,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             this.depthPixels = new byte[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
             this.floatPixels = new byte[MapPixelWidth * MapPixelHeight * 3];
 
-            this.pointCloud = new List<rPoint>();
+            this.pointCloud = new KdTree<double, int>(2, new DoubleMath());
 
             // create the bitmap to display
             this.depthBitmap = new WriteableBitmap(this.depthFrameDescription.Width, this.depthFrameDescription.Height, 96.0, 96.0, PixelFormats.Gray8, null);
@@ -180,12 +183,9 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             ushort* frameData = (ushort*)depthFrameData;
 
             // TODO: clear point cloud for now.
-            //this.pointCloud.Clear();
             this.splittedFlatBitmap.Lock();
             this.splittedFlatBitmap.Clear();
             uint* flatBitmapPixelsPointer = (uint*)this.splittedFlatBitmap.BackBuffer;
-
-            List<r2Point> points = new List<r2Point>();
 
             // convert depth to a visual representation
             // and transform pixels to point cloud
@@ -216,10 +216,9 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                         if (color != 0)
                         {
                             rPoint point = (rPoint)(pointProcessor.transform(pixel));
+                            if (!cloudInitialized) pointCloud.Add(new double[2] { point.x, point.y }, 0);
                             int mapX = (int)((MapActualWidth / 2f + point.x) / MapActualWidth * MapPixelWidth);
                             int mapY = (int)((MapActualHeight / 2f - point.y) / MapActualHeight * MapPixelHeight);
-
-                            points.Add(new r2Point(mapX, mapY));
 
                             if (mapX >= 0 && mapX < MapPixelWidth && mapY >= 0 && mapY < MapPixelHeight)
                             {
@@ -231,7 +230,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                 }
             }
 
-            K2dTree tree = new K2dTree(points.ToArray());
+            cloudInitialized = true;
         }
 
         /// <summary>
@@ -248,8 +247,28 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
 
         private void RenderFlatBitmap()
         {
+            //renderKdTree2D(pointCloud.root);
             this.splittedFlatBitmap.AddDirtyRect(new Int32Rect(0, 0, this.splittedFlatBitmap.PixelWidth, this.splittedFlatBitmap.PixelHeight));
             this.splittedFlatBitmap.Unlock();
+        }
+
+        private unsafe void renderKdTree2D(KdTreeNode<double, int> node)
+        {
+            if (node == null) return;
+            uint* flatBitmapPixelsPointer = (uint*)this.splittedFlatBitmap.BackBuffer;
+            rPoint2d point = new rPoint2d(node.Point[0], node.Point[1]);
+
+            int mapX = (int)((MapActualWidth / 2f + point.x) / MapActualWidth * MapPixelWidth);
+            int mapY = (int)((MapActualHeight / 2f - point.y) / MapActualHeight * MapPixelHeight);
+
+            if (mapX >= 0 && mapX < MapPixelWidth && mapY >= 0 && mapY < MapPixelHeight)
+            {
+                // Treat the color data as 4-byte pixels
+                flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = 0xffff0000;
+            }
+
+            //renderKdTree2D(node.leftChild);
+            //renderKdTree2D(node.rightChild);
         }
 
         /// <summary>

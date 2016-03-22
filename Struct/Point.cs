@@ -100,12 +100,12 @@ namespace SJTU.IOTLab.RoomBuilder.Struct
         }
     }
 
-    public struct r2Point
+    public struct rPoint2d
     {
-        public int x;
-        public int y;
+        public double x;
+        public double y;
 
-        public r2Point(int x, int y)
+        public rPoint2d(double x, double y)
         {
             this.x = x;
             this.y = y;

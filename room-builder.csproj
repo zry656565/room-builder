@@ -85,6 +85,9 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="KdTreeLib">
+      <HintPath>Libraries\KdTreeLib.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Kinect">
       <HintPath>$(KINECTSDK20_DIR)Assemblies\Microsoft.Kinect.dll</HintPath>
     </Reference>
@@ -115,9 +118,8 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="KinectProcessor\PlaybackHelper.cs" />
-    <Compile Include="Struct\K2dTree.cs" />
+    <Compile Include="Lib\DoubleMath.cs" />
     <Compile Include="Struct\Point.cs" />
-    <Compile Include="Struct\K3dTree.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
