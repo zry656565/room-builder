@@ -115,7 +115,9 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="KinectProcessor\PlaybackHelper.cs" />
+    <Compile Include="Struct\K2dTree.cs" />
     <Compile Include="Struct\Point.cs" />
+    <Compile Include="Struct\K3dTree.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

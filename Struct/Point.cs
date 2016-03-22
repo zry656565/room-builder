@@ -99,4 +99,16 @@ namespace SJTU.IOTLab.RoomBuilder.Struct
             this.z = z;
         }
     }
+
+    public struct r2Point
+    {
+        public int x;
+        public int y;
+
+        public r2Point(int x, int y)
+        {
+            this.x = x;
+            this.y = y;
+        }
+    }
 }

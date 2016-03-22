@@ -2,14 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Kinect;
 using SJTU.IOTLab.RoomBuilder.Struct;
-using System.Threading;
-
 
 namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
 {
@@ -186,6 +185,8 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             this.splittedFlatBitmap.Clear();
             uint* flatBitmapPixelsPointer = (uint*)this.splittedFlatBitmap.BackBuffer;
 
+            List<r2Point> points = new List<r2Point>();
+
             // convert depth to a visual representation
             // and transform pixels to point cloud
             for (ushort y = 0; y < depthFrameDescription.Height; ++y)
@@ -218,6 +219,8 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                             int mapX = (int)((MapActualWidth / 2f + point.x) / MapActualWidth * MapPixelWidth);
                             int mapY = (int)((MapActualHeight / 2f - point.y) / MapActualHeight * MapPixelHeight);
 
+                            points.Add(new r2Point(mapX, mapY));
+
                             if (mapX >= 0 && mapX < MapPixelWidth && mapY >= 0 && mapY < MapPixelHeight)
                             {
                                 // Treat the color data as 4-byte pixels
@@ -227,6 +230,8 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                     }
                 }
             }
+
+            K2dTree tree = new K2dTree(points.ToArray());
         }
 
         /// <summary>
