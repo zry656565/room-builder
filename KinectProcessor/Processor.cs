@@ -26,7 +26,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         private const int MapPixelHeight = 1000;
         private const double MapActualWidth = 6f;   // 6m
         private const double MapActualHeight = 6f;  // 6m
-        private const int MAX_FPS = 15;
+        private const float MAX_FPS = 5.0f;
 
         /// <summary>
         /// Size of the RGB pixel in the bitmap
@@ -55,7 +55,9 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         public WriteableBitmap splittedFlatBitmap = null;
 
         private PointProcessor pointProcessor = null;
-        private KdTree<double, int> pointCloud = null;
+        private KdTree<double, uint> basePointCloud = null;
+        private KdTree<double, uint> newPointCloud = null;
+
         private bool cloudInitialized = false;
 
         /// <summary>
@@ -90,7 +92,8 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             this.depthPixels = new byte[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
             this.floatPixels = new byte[MapPixelWidth * MapPixelHeight * 3];
 
-            this.pointCloud = new KdTree<double, int>(2, new DoubleMath());
+            this.basePointCloud = new KdTree<double, uint>(2, new DoubleMath());
+            this.newPointCloud = new KdTree<double, uint>(2, new DoubleMath());
 
             // create the bitmap to display
             this.depthBitmap = new WriteableBitmap(this.depthFrameDescription.Width, this.depthFrameDescription.Height, 96.0, 96.0, PixelFormats.Gray8, null);
@@ -128,7 +131,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
         private void Reader_FrameArrived(object sender, DepthFrameArrivedEventArgs e)
         {
             TimeSpan elapsedSpan = new TimeSpan(DateTime.Now.Ticks - this.timestamp.Ticks);
-            if (elapsedSpan.Milliseconds < (1000f / MAX_FPS)) return;
+            if (elapsedSpan.TotalMilliseconds < (1000f / MAX_FPS)) return;
             this.timestamp = DateTime.Now;
 
             bool depthFrameProcessed = false;
@@ -183,6 +186,7 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
             ushort* frameData = (ushort*)depthFrameData;
 
             // TODO: clear point cloud for now.
+            this.newPointCloud.Clear();
             this.splittedFlatBitmap.Lock();
             this.splittedFlatBitmap.Clear();
             uint* flatBitmapPixelsPointer = (uint*)this.splittedFlatBitmap.BackBuffer;
@@ -216,21 +220,19 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
                         if (color != 0)
                         {
                             rPoint point = (rPoint)(pointProcessor.transform(pixel));
-                            if (!cloudInitialized) pointCloud.Add(new double[2] { point.x, point.y }, 0);
-                            int mapX = (int)((MapActualWidth / 2f + point.x) / MapActualWidth * MapPixelWidth);
-                            int mapY = (int)((MapActualHeight / 2f - point.y) / MapActualHeight * MapPixelHeight);
-
-                            if (mapX >= 0 && mapX < MapPixelWidth && mapY >= 0 && mapY < MapPixelHeight)
-                            {
-                                // Treat the color data as 4-byte pixels
-                                flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = color;
-                            }
+                            (!this.cloudInitialized ? basePointCloud : newPointCloud).Add(new double[2] { point.x, point.y }, color);
                         }
                     }
                 }
             }
 
-            cloudInitialized = true;
+            if (newPointCloud.Count > 0)
+            {
+                // use ICP to merge new point cloud to the base one.
+
+            }
+
+            this.cloudInitialized = true;
         }
 
         /// <summary>
@@ -247,28 +249,28 @@ namespace SJTU.IOTLab.RoomBuilder.KinectProcessor
 
         private void RenderFlatBitmap()
         {
-            //renderKdTree2D(pointCloud.root);
+            renderKdTree2D(newPointCloud);
             this.splittedFlatBitmap.AddDirtyRect(new Int32Rect(0, 0, this.splittedFlatBitmap.PixelWidth, this.splittedFlatBitmap.PixelHeight));
             this.splittedFlatBitmap.Unlock();
         }
 
-        private unsafe void renderKdTree2D(KdTreeNode<double, int> node)
+        private unsafe void renderKdTree2D(KdTree<double, uint> tree)
         {
-            if (node == null) return;
+            if (tree == null) return;
             uint* flatBitmapPixelsPointer = (uint*)this.splittedFlatBitmap.BackBuffer;
-            rPoint2d point = new rPoint2d(node.Point[0], node.Point[1]);
 
-            int mapX = (int)((MapActualWidth / 2f + point.x) / MapActualWidth * MapPixelWidth);
-            int mapY = (int)((MapActualHeight / 2f - point.y) / MapActualHeight * MapPixelHeight);
+            foreach (KdTreeNode<double, uint> node in tree) {
+                rPoint2d point = new rPoint2d(node.Point[0], node.Point[1]);
 
-            if (mapX >= 0 && mapX < MapPixelWidth && mapY >= 0 && mapY < MapPixelHeight)
-            {
-                // Treat the color data as 4-byte pixels
-                flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = 0xffff0000;
+                int mapX = (int)((MapActualWidth / 2f + point.x) / MapActualWidth * MapPixelWidth);
+                int mapY = (int)((MapActualHeight / 2f - point.y) / MapActualHeight * MapPixelHeight);
+
+                if (mapX >= 0 && mapX < MapPixelWidth && mapY >= 0 && mapY < MapPixelHeight)
+                {
+                    // Treat the color data as 4-byte pixels
+                    flatBitmapPixelsPointer[mapY * MapPixelWidth + mapX] = node.Value;
+                }
             }
-
-            //renderKdTree2D(node.leftChild);
-            //renderKdTree2D(node.rightChild);
         }
 
         /// <summary>
